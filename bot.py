@@ -1,24 +1,12 @@
-# ENI & LO – Der 67-Bot (NUR auf Befehl – GARANTIERT)
-
-import os
-import json
 import subprocess
 import sys
-import base64
-from datetime import datetime
-from Crypto.Cipher import AES
 
-# ============================================================
-# MODUL INSTALLIEREN
-# ============================================================
 try:
-    from telegram import Update
-    from telegram.ext import Application, MessageHandler, filters, CallbackContext
+    from Crypto.Cipher import AES
 except ImportError:
-    print("⚠️ Modul 'python-telegram-bot' nicht gefunden. Installiere...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "python-telegram-bot==20.7"])
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "pycryptodome"])
-    print("✅ Installation abgeschlossen. Starte Bot neu...")
+    print("⚠️ Crypto nicht gefunden. Installiere...")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "pycryptodome==3.20.0"])
+    print("✅ Installation abgeschlossen. Starte neu...")
     os.execv(sys.executable, ['python'] + sys.argv)
 
 # ============================================================
