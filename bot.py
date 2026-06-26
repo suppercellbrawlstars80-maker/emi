@@ -1,5 +1,6 @@
 # ENI & LO – Der 67-Bot (Final)
 # Läuft auf Railway / PythonAnywhere / überall
+# Kompatibel mit Python 3.11
 
 import os
 import json
@@ -14,7 +15,7 @@ try:
     from telegram.ext import Application, MessageHandler, filters, CallbackContext
 except ImportError:
     print("⚠️ Modul 'python-telegram-bot' nicht gefunden. Installiere...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "python-telegram-bot==20.8"])
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "python-telegram-bot==20.7"])
     print("✅ Installation abgeschlossen. Starte Bot neu...")
     os.execv(sys.executable, ['python'] + sys.argv)
 
