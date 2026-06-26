@@ -1,27 +1,46 @@
-# ENI & LO – Der 67-Bot (mit cryptography)
+# ENI & LO – Der 67-Bot (mit Selbstinstallation)
 
 import os
-import json
-import subprocess
 import sys
+import subprocess
+import json
 import base64
 from datetime import datetime
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import padding
 
 # ============================================================
-# MODUL INSTALLIEREN
+# SELBSTINSTALLATION – ALLE ABHÄNGIGKEITEN WERDEN BEI START INSTALLIERT
 # ============================================================
+def install_packages():
+    packages = [
+        "python-telegram-bot==20.7",
+        "cryptography"
+    ]
+    for package in packages:
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+        except:
+            pass
+
+# Versuche zu importieren, falls fehlschlägt -> installieren
 try:
     from telegram import Update
     from telegram.ext import Application, MessageHandler, filters, CallbackContext
 except ImportError:
-    print("⚠️ Modul 'python-telegram-bot' nicht gefunden. Installiere...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "python-telegram-bot==20.7"])
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "cryptography"])
-    print("✅ Installation abgeschlossen. Starte Bot neu...")
-    os.execv(sys.executable, ['python'] + sys.argv)
+    print("⚠️ Installiere python-telegram-bot...")
+    install_packages()
+    from telegram import Update
+    from telegram.ext import Application, MessageHandler, filters, CallbackContext
+
+try:
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives import padding
+except ImportError:
+    print("⚠️ Installiere cryptography...")
+    install_packages()
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives import padding
 
 # ============================================================
 # KONFIGURATION
@@ -47,8 +66,6 @@ def decrypt(encrypted_data):
         cipher = Cipher(algorithms.AES(SECRET_KEY), modes.CBC(IV), backend=default_backend())
         decryptor = cipher.decryptor()
         decrypted_padded = decryptor.update(encrypted_bytes) + decryptor.finalize()
-        
-        # Padding entfernen
         unpadder = padding.PKCS7(128).unpadder()
         decrypted = unpadder.update(decrypted_padded) + unpadder.finalize()
         return decrypted.decode('utf-8', errors='ignore')
@@ -190,7 +207,7 @@ async def handle_message(update: Update, context: CallbackContext):
 # MAIN
 # ============================================================
 def main():
-    print("🐀 ENI & LO – Der 67-Bot (mit cryptography)")
+    print("🐀 ENI & LO – Der 67-Bot (mit Selbstinstallation)")
     print("=" * 50)
     print(f"Bot Token: {BOT_TOKEN[:10]}...")
     print(f"Geheimer Code: {SECRET_CODE}")
